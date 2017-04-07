@@ -833,6 +833,8 @@ immutable libusb_version
     libusb_version() = new(0,0,0,0,0,0)
 end
 
+Base.show(io::IO, v::libusb_version) = print(io, "libusb v$(Int(v.major)).$(Int(v.minor)).$(Int(v.micro)).$(Int(v.nano)) $(unsafe_string(v.rc)): $(unsafe_string(v.describe))")
+
 # /** \ingroup libusb_lib
 #  * Structure representing a libusb session. The concept of individual libusb
 #  * sessions allows for your program to use two libraries (or dynamically
@@ -1241,13 +1243,16 @@ function __init__()
     libusb_init(ctxRef)
     global const ctx = ctxRef[]
     finalizer(ctxRef, x->libusb_exit(ctx))
-    global const version = libusb_get_version()
+    global const version = unsafe_load(libusb_get_version())
+    libusb_set_debug(ctx, Cint(LIBUSB_LOG_LEVEL_DEBUG))
 end
 
 @c Cint libusb_init (Ref{Ptr{libusb_context}},) ctx
 @c Void libusb_exit (Ptr{libusb_context},) ctx
+@c Void libusb_set_debug (Ptr{libusb_context}, Cint) ctx level
+
 # Void libusb_set_debug(ctx::Ptr{libusb_context}, level::Cint);
-@c libusb_version libusb_get_version ()
+@c Ptr{libusb_version} libusb_get_version ()
 # int libusb_has_capability(capability::UInt32);
 # const char * libusb_error_name(errcode::Cint);
 # int libusb_setlocale(locale::String);
@@ -1266,7 +1271,7 @@ end
 
 # int libusb_get_active_config_descriptor(dev::Ptr{libusb_device},
 # 	config::Ref{libusb_config_descriptor});
-@c Cint libusb_get_config_descriptor (Ptr{libusb_device}, UInt8, Ref{libusb_config_descriptor}) dev config_index config
+@c Cint libusb_get_config_descriptor (Ptr{libusb_device}, UInt8, Ref{Ptr{libusb_config_descriptor}}) dev config_index config
 # int libusb_get_config_descriptor_by_value(dev::Ptr{libusb_device},
 # 	bConfigurationValue::UInt8, config::Ref{libusb_config_descriptor});
 # Void libusb_free_config_descriptor(config::libusb_config_descriptor);
@@ -1309,8 +1314,8 @@ end
 # int libusb_get_max_iso_packet_size(dev::Ptr{libusb_device},
 # 	endpoint::UInt8);
 #
-# int libusb_open(dev::Ptr{libusb_device}, dev_handle::Ref{libusb_device_handle});
-# Void libusb_close(dev_handle::Ptr{libusb_device_handle});
+int libusb_open(dev::Ptr{libusb_device}, dev_handle::Ref{libusb_device_handle});
+Void libusb_close(dev_handle::Ptr{libusb_device_handle});
 # libusb_device * libusb_get_device(dev_handle::Ptr{libusb_device_handle});
 #
 # int libusb_set_configuration(dev_handle::Ptr{libusb_device_handle},
